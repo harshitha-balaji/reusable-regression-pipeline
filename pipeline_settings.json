@@ -1,0 +1,9 @@
+{
+  "pipeline_settings": {
+    "test_split_ratio": 0.2,
+    "random_state": 42,
+    "numeric_threshold": 0.50,
+    "cross_validation_folds": 5,
+    "scaling_enabled": true
+  }
+}
