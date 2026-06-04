@@ -1,0 +1,12 @@
+# Reusable Regression Pipeline — Dependencies
+# Install with: pip install -r requirements.txt
+
+# --- ML Core ---
+scikit-learn==1.8.0
+
+# --- Data Handling ---
+pandas==3.0.2
+numpy==2.4.4
+
+# --- Pipeline Serialization ---
+joblib==1.5.3
