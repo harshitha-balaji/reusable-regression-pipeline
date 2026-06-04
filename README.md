@@ -1,4 +1,4 @@
-# 📐 Reusable Regression Pipeline (RRP)
+# ⚙️ Reusable Regression Pipeline (RRP)
 
 > **A dataset-agnostic, config-driven supervised learning pipeline** — point it at any CSV, select your target variable, and get a fully evaluated linear regression model with cross-validated metrics, ranked feature coefficients, and a serialized pipeline ready for live inference.
 
