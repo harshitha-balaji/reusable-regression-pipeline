@@ -23,7 +23,7 @@ Select Mode:
 Enter choice: 1
 
 [?] Enter the path to your CSV file: housing_data.csv
-[?] Enter the column you want to predict: price
+[?] Enter the name or number of the column you want to predict: price
 
 ═══════════════════════════════════════════════════════════════════════════
  REUSABLE REGRESSION PIPELINE (RRP) — PERFORMANCE DASHBOARD
