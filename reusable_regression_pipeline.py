@@ -1,6 +1,7 @@
+# reusable_regression_pipeline.py
+
 import os
 import sys
-import json
 import warnings
 import numpy as np
 import pandas as pd
@@ -11,153 +12,15 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
-# Globally ignore the specific DtypeWarning that pandas throws on messy CSV chunks
+# IMPORT THE SHARED MODULAR DATA CORE HELPERS
+from core.data_cleaner import load_config, ingest_and_clean_csv, select_target_and_features
+
+# Globally ignore specific DtypeWarnings that pandas throws on messy CSV chunks
 warnings.filterwarnings("ignore", category=pd.errors.DtypeWarning)
 
 
 # =====================================================================
-# CONFIG LOADER
-# =====================================================================
-def load_config(config_path: str = "pipeline_settings.json") -> dict:
-    """Loads pipeline settings from external config file."""
-    if not os.path.exists(config_path):
-        print(f"[!] Config file '{config_path}' not found. Using built-in defaults.")
-        return {
-            "pipeline_settings": {
-                "test_split_ratio": 0.2,
-                "random_state": 42,
-                "numeric_threshold": 0.50,
-                "cross_validation_folds": 5,
-                "scaling_enabled": True
-            }
-        }
-    with open(config_path, "r") as f:
-        config = json.load(f)
-    print(f"[+] Configuration loaded from '{config_path}'.")
-    return config
-
-
-# =====================================================================
-# PHASE 1: DATA INGESTION
-# =====================================================================
-def ingest_and_clean_csv(csv_path: str, numeric_threshold: float = 0.50):
-    """
-    Phase 1: Loads a CSV, filters out columns that are not mostly numeric,
-    drops true ID columns by uniqueness ratio, patches missing values,
-    and returns a pristine DataFrame.
-    """
-    if not os.path.exists(csv_path):
-        print(f"\n[ERROR] File not found at: '{csv_path}'")
-        return None
-
-    try:
-        raw_df = pd.read_csv(csv_path, encoding="latin1")
-        total_rows, total_cols = raw_df.shape
-        print(f"\n[+] Successfully loaded: '{os.path.basename(csv_path)}' ({total_rows:,} rows, {total_cols} columns)")
-
-        clean_columns = {}
-
-        for col in raw_df.columns:
-            numeric_s = pd.to_numeric(raw_df[col], errors="coerce")
-            valid_numeric_count = numeric_s.notnull().sum()
-            numeric_ratio = valid_numeric_count / total_rows
-
-            if numeric_ratio >= numeric_threshold:
-                clean_columns[col] = numeric_s
-
-        numeric_df = pd.DataFrame(clean_columns)
-
-        def is_id_column(series, col_name):
-            # 1. Name heuristic check
-            name_signal = col_name.lower() == "id" or any(tok in col_name.lower() for tok in ["_id", "id_", " id", "id ", "index"])
-            if not name_signal:
-                return False
-            
-            # 2. Check if it acts like a primary key (100% unique integers)
-            try:
-                clean_series = series.dropna()
-                if clean_series.nunique() == len(clean_series):
-                    # Ensure they are clean, whole numbers (no float prices)
-                    if (clean_series % 1 == 0).all():
-                        return True
-            except:
-                pass
-                
-            return False
-
-        id_cols = [c for c in numeric_df.columns if is_id_column(numeric_df[c], c)]
-        numeric_df = numeric_df.drop(columns=id_cols)
-
-        dropped_non_numeric = [c for c in raw_df.columns if c not in numeric_df.columns and c not in id_cols]
-        total_nans = numeric_df.isnull().sum().sum()
-        if total_nans > 0:
-            numeric_df = numeric_df.fillna(numeric_df.mean())
-
-        print("\n" + "=" * 70)
-        print(" PHASE 1: DATA INGESTION & PARSING SUMMARY")
-        print("=" * 70)
-        print(f"  Total Rows Processed:     {len(numeric_df):,}")
-        print(f"  Valid Numeric Features:   {len(numeric_df.columns)} columns passed threshold")
-        print(f"  Dropped (Text/Non-numeric): {len(dropped_non_numeric)} columns")
-        print(f"  Dropped (ID Columns):     {len(id_cols)} columns {id_cols if id_cols else ''}")
-        print(f"  Missing Values Patched:   {total_nans} cells filled with column means")
-
-        print("\n  Cleaned columns available for your ML model:")
-        for idx, col in enumerate(numeric_df.columns, 1):
-            print(f"   [{idx}] {col}")
-        print("=" * 70)
-
-        return numeric_df
-
-    except Exception as e:
-        print(f"\n[ERROR] Could not parse CSV file. Details: {e}")
-        return None
-
-
-# =====================================================================
-# PHASE 2: TARGET SELECTION
-# =====================================================================
-def select_target_and_features(df: pd.DataFrame):
-    """
-    Phase 2: Prompts the user to select a target column (y).
-    Automatically assigns all other columns as input features (X).
-    """
-    columns_list = list(df.columns)
-
-    print("\n" + "=" * 70)
-    print(" PHASE 2: INTERACTIVE TARGET VARIABLE SELECTION")
-    print("=" * 70)
-
-    target_column = None
-    while target_column is None:
-        user_choice = input("\n[?] Enter the name or number of the column you want to predict: ").strip()
-
-        if user_choice.isdigit():
-            idx = int(user_choice) - 1
-            if 0 <= idx < len(columns_list):
-                target_column = columns_list[idx]
-            else:
-                print(f"[ERROR] Number out of range. Choose between 1 and {len(columns_list)}.")
-        elif user_choice in columns_list:
-            target_column = user_choice
-        else:
-            print(f"[ERROR] '{user_choice}' is not a valid column. Match the list above exactly.")
-
-    feature_columns = [col for col in columns_list if col != target_column]
-
-    print("\n" + "-" * 70)
-    print(f"  Target Selected  : {target_column} (y)")
-    print(f"  Features Assigned: {', '.join(feature_columns)} (X)")
-    print("-" * 70)
-
-    X = df[feature_columns]
-    y = df[target_column]
-
-    return X, y, feature_columns
-
-
-# =====================================================================
-# PHASE 3: TRAINING
+# PHASE 3: TRAINING ENGINE
 # =====================================================================
 def train_regression_pipeline(X: pd.DataFrame, y: pd.Series, config: dict):
     """
@@ -255,7 +118,7 @@ def generate_terminal_report(pipeline, X_test, y_test, feature_names: list, targ
 
 
 # =====================================================================
-# PREDICT MODE — load a saved pipeline and run predictions
+# LIVE PREDICT MODE
 # =====================================================================
 def run_predict_mode(model_path: str):
     """
@@ -269,7 +132,13 @@ def run_predict_mode(model_path: str):
     pipeline = joblib.load(model_path)
     print(f"\n[+] Pipeline loaded from '{model_path}'.")
 
-    feature_names = pipeline.named_steps['regressor'].feature_names_in_ if hasattr(pipeline.named_steps['regressor'], 'feature_names_in_') else None
+    # feature_names_in_ lives on the first fitted step — scaler if enabled, regressor if not.
+    # Check both steps in order so manual predict mode works regardless of scaling setting.
+    feature_names = None
+    for step_name, step_obj in pipeline.steps:
+        if hasattr(step_obj, 'feature_names_in_'):
+            feature_names = step_obj.feature_names_in_
+            break
 
     print("\n" + "=" * 70)
     print(" PREDICT MODE — Live Inference Interface")
@@ -340,14 +209,14 @@ def run_predict_mode(model_path: str):
 
 
 # =====================================================================
-# MAIN EXECUTION
+# MAIN RUN ENGINE CONTROLLER
 # =====================================================================
 if __name__ == "__main__":
     print("=" * 70)
     print("  🤖 WELCOME TO THE REUSABLE REGRESSION PIPELINE (RRP)")
     print("=" * 70)
 
-    # Point directly to the uploaded settings file
+    # Consume config setting engine seamlessly from core module
     config = load_config("pipeline_settings.json")
     settings = config["pipeline_settings"]
 
@@ -361,7 +230,7 @@ if __name__ == "__main__":
         if engine_mode not in ["1", "2"]:
             print("[ERROR] Invalid choice. Please enter 1 or 2.")
 
-    # MODE 2: PREDICT MODE
+    # MODE 2: LIVE PREDICT MODE
     if engine_mode == "2":
         model_path = input("\n[?] Enter the path to your saved .pkl pipeline file: ").strip().strip("'\"")
         run_predict_mode(model_path)
@@ -370,27 +239,31 @@ if __name__ == "__main__":
         print("=" * 70 + "\n")
         sys.exit(0)
 
-    # MODE 1: TRAINING MODE
+    # MODE 1: ENGINE TRAINING MODE
     cleaned_dataframe = None
-
     while cleaned_dataframe is None:
         user_path = input("\n[?] Enter the path to your CSV file (or 'exit' to quit): ").strip()
         if user_path.lower() == "exit":
             print("\nExiting RRP. Goodbye!")
             sys.exit(0)
         user_path = user_path.strip("'\"")
+        # Route logic flawlessly to shared core module function
         cleaned_dataframe = ingest_and_clean_csv(user_path, numeric_threshold=settings.get("numeric_threshold", 0.50))
 
     print("\n[Success] Phase 1 complete. DataFrame locked and loaded.")
 
+    # Route extraction logic directly to core module function
     X, y, selected_features = select_target_and_features(cleaned_dataframe)
     print("\n[Success] Phase 2 complete. X and y arrays ready for training.")
 
+    # Execute training operations internally
     trained_pipeline, X_train, X_test, y_train, y_test, cv_scores = train_regression_pipeline(X, y, config)
     print("\n[Success] Phase 3 complete. Model trained and cross-validated.")
 
+    # Present continuous visual impact metrics dashboard
     generate_terminal_report(trained_pipeline, X_test, y_test, selected_features, y.name, cv_scores)
 
+    # Direct serialized asset export engine
     save_choice = input("\n[?] Save this trained pipeline to disk? (yes/no): ").strip().lower()
     if save_choice in ["yes", "y"]:
         model_filename = f"rrp_pipeline_{y.name}.pkl"
