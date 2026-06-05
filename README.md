@@ -143,16 +143,6 @@ All parameters have safe fallback defaults — both pipelines run correctly even
 
 ---
 
-## Design Philosophy
-
-SLP is intentionally named a **Pipeline suite**, not an Engine. The distinction is deliberate:
-
-A **Pipeline** is a reusable, domain-agnostic workflow — it carries no opinion about what the data represents. The same pipeline trains on housing prices, medical outcomes, or financial data without any code changes. An **Engine**, by contrast, is built around a specific domain problem with multiple decoupled architectural layers reflecting that context (see SSE, GGE, EOE in this portfolio).
-
-Every operational value lives in `pipeline_settings.json`. The Python files contain only logic.
-
----
-
 ## Roadmap
 
 - [ ] Ridge and Polynomial regression modes via `pipeline_settings.json` recipe key
