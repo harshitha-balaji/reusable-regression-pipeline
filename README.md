@@ -1,6 +1,6 @@
-# ⚙️ Reusable Regression Pipeline (RRP)
+# ⚙️ Supervised Learning Pipelines (SLP)
 
-> **A dataset-agnostic, config-driven supervised learning pipeline** — point it at any CSV, select your target variable, and get a fully evaluated linear regression model with cross-validated metrics, ranked feature coefficients, and a serialized pipeline ready for live inference.
+> **A dataset-agnostic, config-driven supervised learning suite** — point either pipeline at any CSV, select your target, and get a fully evaluated, serializable model with cross-validated metrics and live inference support. No dataset-specific code. No hardcoded values.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)
 [![scikit-learn](https://img.shields.io/badge/ML-scikit--learn-F7931E?style=flat-square)](https://scikit-learn.org/)
@@ -13,96 +13,92 @@
 
 ## What is this?
 
-RRP is not a trained model — it is a **reusable workflow** that can be aimed at any structured dataset without writing a single line of code. Drop in a CSV, select what you want to predict, and the pipeline handles everything else: cleaning, scaling, training, evaluation, and serialization.
+SLP is a two-pipeline supervised learning suite sharing a common data core. Both pipelines follow identical four-phase workflows — ingestion, target selection, training, and reporting — with task-specific logic for regression and classification kept cleanly separated.
 
 ```
+supervised-learning-pipelines/
+├── core/
+│   └── data_cleaner.py              # Shared data engine — both pipelines import from here
+├── reusable_regression_pipeline.py  # RRP — continuous target prediction
+├── common_classification_pipeline.py # CCP — discrete class prediction
+├── pipeline_settings.json           # Single config file controls both pipelines
+└── requirements.txt
+```
+
+---
+
+## The Two Pipelines
+
+### 📈 RRP — Reusable Regression Pipeline
+*Point it at any CSV. Select a continuous target. Get a fully evaluated linear regression model.*
+
+```
+python reusable_regression_pipeline.py
+
 Select Mode:
   [1] Train a new Regression Model on a CSV dataset
   [2] Load an existing saved pipeline (.pkl) for Live Predictions
-
-Enter choice: 1
-
-[?] Enter the path to your CSV file: housing_data.csv
-[?] Enter the name or number of the column you want to predict: price
-
-═══════════════════════════════════════════════════════════════════════════
- REUSABLE REGRESSION PIPELINE (RRP) — PERFORMANCE DASHBOARD
-═══════════════════════════════════════════════════════════════════════════
-  R-squared (R²) Score  : 0.9991  ← held-out test set
-  CV R² Mean            : 0.9992 (+/- 0.0002)  ← 5-fold average
-  Mean Absolute Error   : 2352.56
-  Root Mean Sq. Error   : 2819.56
-
-  FEATURE IMPACT RANKING
-  [1]   size_sqft        104462.92    ████████████████████ (+)
-  [2]   distance_km      -16426.36    ███                  (-)
-  [3]   bedrooms          14496.98    ██                   (+)
-  [4]   age_years         -6680.54    █                    (-)
-═══════════════════════════════════════════════════════════════════════════
 ```
 
-## Features
+**Output:**
+- R² score (held-out test set + 5-fold CV mean)
+- MAE and RMSE
+- Feature impact ranking with visual coefficient bar graph
+- Serialized `.pkl` pipeline for live inference
 
-- **Automatic CSV cleaning** — detects and drops non-numeric columns, removes ID columns, patches missing values with column means
-- **Interactive target selection** — select your prediction target by name or number at runtime
-- **Config-driven workflow** — all split ratios, random seeds, CV folds, and scaling toggles live in `pipeline_settings.json`
-- **5-fold cross-validation** — produces a stable R² estimate alongside the single held-out test score
-- **Feature impact ranking** — ranked coefficient table with a visual bar graph showing relative feature power
-- **Pipeline serialization** — exports a trained `.pkl` file containing the full scaler + model pipeline
-- **Live inference mode** — load any saved pipeline and predict from a new CSV or manually entered values
+---
+
+### 🎯 CCP — Common Classification Pipeline
+*Point it at any CSV. Select a discrete target. Get a fully evaluated logistic classifier — binary or multi-class.*
+
+```
+python common_classification_pipeline.py
+
+Select Executive Workflow Mode:
+  [1] Train a new Logistic Classification Model
+  [2] Spin up Live Predict Engine from a saved (.pkl) asset
+```
+
+**Output:**
+- Accuracy, Precision, Recall, F1-Score
+- Stratified 5-fold CV accuracy mean
+- Feature log-odds influence ranking with visual bar graph
+- Serialized `.pkl` pipeline + companion label encoder for original class name decoding
+
+---
+
+## Shared Data Core
+
+Both pipelines import from `core/data_cleaner.py` — a universal data engine that handles:
+
+- **Numeric filtering** — retains only columns that are at least 50% numeric (configurable)
+- **ID column detection** — drops sequential integer primary keys using a name token + integer wholeness heuristic, avoiding false drops on legitimate features
+- **Missing value imputation** — mean for numeric columns, mode for categorical columns
+- **Categorical target encoding** — auto-detects text class labels and encodes them to integers via `LabelEncoder`, with the encoder saved alongside the pipeline for inverse decoding during inference
+- **One-hot encoding** — automatically converts categorical feature columns to binary integer columns before training
 
 ---
 
 ## How It Works
 
-The pipeline runs four sequential phases:
+Both pipelines run four sequential phases:
 
-### Phase 1 — Data Ingestion & Cleaning
-- Loads CSV with Latin-1 encoding fallback for special characters
-- Filters columns to only those that are at least 50% numeric (configurable)
-- Detects and drops integer ID columns using a two-signal heuristic — name pattern + primary key check
-- Fills remaining missing values with column means
+**Phase 1 — Universal Data Ingestion**
+Loads any CSV, filters columns, detects and drops ID keys, imputes missing values, and prints a full parsing summary dashboard.
 
-### Phase 2 — Interactive Target Selection
-- Lists all cleaned numeric columns with index numbers
-- Accepts target selection by column name or number
-- Automatically assigns all remaining columns as input features (X)
+**Phase 2 — Interactive Target Selection**
+Lists all cleaned columns with index numbers. Accepts target by name or number. Auto-encodes text targets for CCP. Assigns all remaining columns as features.
 
-### Phase 3 — Training & Cross-Validation
-- Splits data into configurable train/test ratio (default 80/20)
-- Builds a `sklearn.Pipeline` with optional `StandardScaler` and `LinearRegression`
-- Fits on training data, then runs k-fold cross-validation on the full dataset for a stable performance estimate
+**Phase 3 — Training & Cross-Validation**
 
-### Phase 4 — Analytics Dashboard
-- Evaluates on held-out test set (R², MAE, RMSE)
-- Displays CV scores alongside single-split score for comparison
-- Ranks features by absolute coefficient magnitude with a visual bar graph
-- Optionally serializes the full pipeline to disk with `joblib`
+| | RRP | CCP |
+|--|-----|-----|
+| Model | `LinearRegression` | `LogisticRegression` |
+| CV Strategy | `KFold` (shuffled) | `StratifiedKFold` (class-balanced) |
+| Primary Metric | R² | Accuracy |
 
----
-
-## Project Structure
-
-```
-reusable-regression-pipeline/
-├── reusable_regression_pipeline.py   # Full pipeline — ingestion, training, evaluation, inference
-├── pipeline_settings.json            # All configurable parameters
-└── requirements.txt
-```
-
-The pipeline is deliberately config-driven — `reusable_regression_pipeline.py` contains only logic, never hardcoded operational values.
-
----
-
-## Tech Stack
-
-| Layer | Library |
-|-------|---------|
-| ML pipeline & model | `scikit-learn` |
-| Data ingestion & cleaning | `Pandas` |
-| Numerical computation | `NumPy` |
-| Pipeline serialization | `joblib` |
-| Configuration loading | `json` (stdlib) |
+**Phase 4 — Analytics Dashboard**
+Prints a full performance report with metrics, CV scores, and a ranked feature impact table with a visual bar graph.
 
 ---
 
@@ -114,82 +110,66 @@ The pipeline is deliberately config-driven — `reusable_regression_pipeline.py`
 pip install -r requirements.txt
 ```
 
-### 2. Run the pipeline
+### 2. Run either pipeline
 
 ```bash
 python reusable_regression_pipeline.py
+python common_classification_pipeline.py
 ```
 
-### 3. Follow the prompts
+### 3. Live inference from a saved pipeline
 
-```
-Select Mode:
-  [1] Train a new Regression Model on a CSV dataset
-  [2] Load an existing saved pipeline (.pkl) for Live Predictions
-```
+Both pipelines offer a predict mode at launch — load any saved `.pkl` and either:
+- Batch predict from a new CSV file
+- Manually enter feature values for single-row inference
 
-**Training mode** — provide a CSV path, select your target column, review the dashboard, optionally save the pipeline.
-
-**Inference mode** — provide a saved `.pkl` path, then either supply a new CSV or enter feature values manually for live predictions.
+For CCP with text class labels, the pipeline auto-saves a companion `ccp_encoder_{target}.pkl` — keep both files together for original label decoding during inference.
 
 ---
 
 ## Configuration
 
-### `pipeline_settings.json`
+A single `pipeline_settings.json` controls both pipelines:
 
 | Parameter | What it controls |
 |-----------|-----------------|
 | `test_split_ratio` | Fraction of data held out for final evaluation (default: 0.2) |
-| `random_state` | Seed for reproducible train/test splits |
-| `numeric_threshold` | Minimum ratio of numeric values for a column to be retained (default: 0.50) |
-| `cross_validation_folds` | Number of CV folds for stable performance estimation (default: 5) |
-| `scaling_enabled` | Toggle StandardScaler normalization before training (default: true) |
+| `random_state` | Seed for reproducible splits |
+| `numeric_threshold` | Minimum numeric ratio for a column to be retained (default: 0.50) |
+| `cross_validation_folds` | Number of CV folds (default: 5) |
+| `scaling_enabled` | Toggle `StandardScaler` normalization before training (default: true) |
 
-All parameters have safe fallback defaults — the pipeline runs correctly even if the config file is missing.
-
----
-
-## Understanding the Output
-
-**R² (held-out)** — proportion of variance in the target explained by the model on the unseen test set. 1.0 is perfect, 0.0 means the model is no better than predicting the mean.
-
-**CV R² Mean ± std** — average R² across k independent train/test splits. When this is close to the held-out R², your model is stable. When they diverge significantly, your single split got lucky or unlucky.
-
-**Feature coefficients** — scaled weights showing how much each feature moves the prediction per unit change. Ranked by absolute magnitude so the most influential features appear first. Positive means increasing the feature increases the prediction; negative means the reverse.
+All parameters have safe fallback defaults — both pipelines run correctly even without the config file.
 
 ---
 
-## Design Decisions
+## Design Philosophy
 
-**Why config-driven?**
-Hardcoded split ratios and thresholds make the pipeline fragile and non-reproducible. Externalizing them into `pipeline_settings.json` means any experiment can be precisely reproduced or adjusted without touching the code.
+SLP is intentionally named a **Pipeline suite**, not an Engine. The distinction is deliberate:
 
-**Why cross-validation alongside a single split?**
-A single train/test split R² is sensitive to which rows randomly landed in the test set. Cross-validation averages performance across k independent splits, producing a stable estimate with a measurable variance. Both scores together tell you more than either alone.
+A **Pipeline** is a reusable, domain-agnostic workflow — it carries no opinion about what the data represents. The same pipeline trains on housing prices, medical outcomes, or financial data without any code changes. An **Engine**, by contrast, is built around a specific domain problem with multiple decoupled architectural layers reflecting that context (see SSE, GGE, EOE in this portfolio).
 
-**Why sklearn Pipeline instead of manual scaling?**
-A `sklearn.Pipeline` keeps the scaler and model as one serializable unit. This guarantees that new data passed to the saved `.pkl` during inference is always scaled with the same parameters fitted on training data — a common source of silent bugs when scaling is done manually.
+Every operational value lives in `pipeline_settings.json`. The Python files contain only logic.
 
 ---
 
 ## Roadmap
 
-- [ ] Classification mode — logistic regression, decision tree, with `pipeline_settings.json` mode toggle
-- [ ] Feature selection — configurable column include/exclude list
-- [ ] Polynomial and Ridge regression recipe support
+- [ ] Ridge and Polynomial regression modes via `pipeline_settings.json` recipe key
+- [ ] Decision tree and random forest classification support
 - [ ] Correlation matrix report in Phase 1
 - [ ] HTML report export alongside terminal dashboard
+- [ ] Unified SLP runner — single entry point that routes to RRP or CCP based on config
 
 ---
 
 ## Limitations
 
-- Currently supports only linear regression — non-linear relationships will produce poor R² scores
-- Mean imputation for missing values may introduce bias on datasets with significant missingness
-- Unusual ID formats may not be caught
-- Feature coefficients reflect scaled weights and are not directly interpretable in original units
+- RRP supports only linear regression — non-linear relationships will produce poor R² scores
+- CCP supports only logistic regression — complex decision boundaries may need tree-based models
+- Mean/mode imputation may introduce bias on datasets with significant missingness
+- One-hot encoding expands feature space significantly on high-cardinality categorical columns
 
 ---
 
-*Built as a dataset-agnostic supervised learning pipeline to explore reusable ML workflow architecture — part of a broader portfolio of config-driven data science tools.*
+*Part of a broader portfolio of config-driven data science tools — built to explore reusable supervised learning workflow architecture.*
