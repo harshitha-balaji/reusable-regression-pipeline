@@ -48,7 +48,7 @@ Select Mode:
 
 ---
 
-### 🎯 CCP — Common Classification Pipeline
+### ⚖️ CCP — Common Classification Pipeline
 *Point it at any CSV. Select a discrete target. Get a fully evaluated logistic classifier — binary or multi-class.*
 
 ```
