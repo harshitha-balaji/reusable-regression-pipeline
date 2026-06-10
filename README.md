@@ -1,27 +1,30 @@
 # ⚙️ Supervised Learning Pipelines (SLP)
 
-> **A dataset-agnostic, config-driven supervised learning suite** — point either pipeline at any CSV, select your target, and get a fully evaluated, serializable model with cross-validated metrics and live inference support. No dataset-specific code. No hardcoded values.
+> **Dataset-agnostic, config-driven supervised learning suite** — point either pipeline at any CSV, select your target, and get a fully evaluated, serializable model with cross-validated metrics and live inference support. No dataset-specific code. No hardcoded values.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)
 [![scikit-learn](https://img.shields.io/badge/ML-scikit--learn-F7931E?style=flat-square)](https://scikit-learn.org/)
 [![Pandas](https://img.shields.io/badge/Data-Pandas-150458?style=flat-square)](https://pandas.pydata.org/)
 [![NumPy](https://img.shields.io/badge/Math-NumPy-013243?style=flat-square)](https://numpy.org/)
+![Config](https://img.shields.io/badge/architecture-config--driven-yellow?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
-![Status](https://img.shields.io/badge/status-active-brightgreen?style=flat-square)
+![Status](https://img.shields.io/badge/status-complete-brightgreen?style=flat-square)
 
 ---
 
 ## What is this?
 
-SLP is a two-pipeline supervised learning suite sharing a common data core. Both pipelines follow identical four-phase workflows — ingestion, target selection, training, and reporting — with task-specific logic for regression and classification kept cleanly separated.
+Most ML pipelines are written for a specific dataset. SLP isn't.
+
+Two pipelines — one for regression, one for classification — sharing a common data core. Point either at any CSV, select a target column, and get a fully evaluated, cross-validated, serializable model with live inference support. The data changes. The pipeline doesn't.
 
 ```
 supervised-learning-pipelines/
 ├── core/
-│   └── data_cleaner.py              # Shared data engine — both pipelines import from here
-├── reusable_regression_pipeline.py  # RRP — continuous target prediction
+│   └── data_cleaner.py               # Shared data engine — both pipelines import from here
+├── reusable_regression_pipeline.py   # RRP — continuous target prediction
 ├── common_classification_pipeline.py # CCP — discrete class prediction
-├── pipeline_settings.json           # Single config file controls both pipelines
+├── pipeline_settings.json            # Single config file controls both pipelines
 └── requirements.txt
 ```
 
@@ -83,13 +86,13 @@ Both pipelines import from `core/data_cleaner.py` — a universal data engine th
 
 Both pipelines run four sequential phases:
 
-**Phase 1 — Universal Data Ingestion**
+### Phase 1 — Universal Data Ingestion
 Loads any CSV, filters columns, detects and drops ID keys, imputes missing values, and prints a full parsing summary dashboard.
 
-**Phase 2 — Interactive Target Selection**
+### Phase 2 — Interactive Target Selection
 Lists all cleaned columns with index numbers. Accepts target by name or number. Auto-encodes text targets for CCP. Assigns all remaining columns as features.
 
-**Phase 3 — Training & Cross-Validation**
+### Phase 3 — Training & Cross-Validation
 
 | | RRP | CCP |
 |--|-----|-----|
@@ -97,8 +100,19 @@ Lists all cleaned columns with index numbers. Accepts target by name or number. 
 | CV Strategy | `KFold` (shuffled) | `StratifiedKFold` (class-balanced) |
 | Primary Metric | R² | Accuracy |
 
-**Phase 4 — Analytics Dashboard**
+### Phase 4 — Analytics Dashboard
 Prints a full performance report with metrics, CV scores, and a ranked feature impact table with a visual bar graph.
+
+---
+
+## Tech Stack
+
+| Layer | Library |
+|-------|---------|
+| ML models & cross-validation | `scikit-learn` |
+| Data loading & manipulation | `pandas` |
+| Numerical computation | `numpy` |
+| Model serialization | `joblib` |
 
 ---
 
@@ -143,9 +157,19 @@ All parameters have safe fallback defaults — both pipelines run correctly even
 
 ---
 
+## Design Decisions
+
+**Why a shared data core?**
+Regression and classification share identical preprocessing needs — filtering, imputation, encoding. A single `data_cleaner.py` means any fix or improvement to data handling propagates to both pipelines automatically, with no risk of the two drifting apart.
+
+**Why config-driven?**
+Hardcoded split ratios and fold counts make experimentation require code changes. Externalising them to `pipeline_settings.json` means you can tune the training setup without touching pipeline logic — and safe fallback defaults mean the config file is optional, not a dependency.
+
+---
+
 ## Roadmap
 
-- [ ] Ridge and Polynomial regression modes via `pipeline_settings.json` recipe key
+- [ ] Ridge and polynomial regression modes via `pipeline_settings.json` recipe key
 - [ ] Decision tree and random forest classification support
 - [ ] Correlation matrix report in Phase 1
 - [ ] HTML report export alongside terminal dashboard
@@ -162,4 +186,4 @@ All parameters have safe fallback defaults — both pipelines run correctly even
 
 ---
 
-*Part of a broader portfolio of config-driven data science tools — built to explore reusable supervised learning workflow architecture.*
+*Built dataset-agnostic by design. The pipeline is the reusable artifact — not the model.*
