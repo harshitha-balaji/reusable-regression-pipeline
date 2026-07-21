@@ -1,189 +1,103 @@
 # ⚙️ Supervised Learning Pipelines (SLP)
 
-> **Dataset-agnostic, config-driven supervised learning suite** — point either pipeline at any CSV, select your target, and get a fully evaluated, serializable model with cross-validated metrics and live inference support. No dataset-specific code. No hardcoded values.
+> A reusable machine learning pipeline for regression and classification using configurable preprocessing and evaluation workflows.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)
 [![scikit-learn](https://img.shields.io/badge/ML-scikit--learn-F7931E?style=flat-square)](https://scikit-learn.org/)
 [![Pandas](https://img.shields.io/badge/Data-Pandas-150458?style=flat-square)](https://pandas.pydata.org/)
-[![NumPy](https://img.shields.io/badge/Math-NumPy-013243?style=flat-square)](https://numpy.org/)
-![Config](https://img.shields.io/badge/architecture-config--driven-yellow?style=flat-square)
+[![NumPy](https://img.shields.io/badge/Numerical-NumPy-013243?style=flat-square)](https://numpy.org/)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
-![Status](https://img.shields.io/badge/status-complete-brightgreen?style=flat-square)
 
 ---
 
-## What is this?
+## Overview
 
-Most ML pipelines are written for a specific dataset. SLP isn't.
+SLP provides reusable pipelines for supervised learning tasks by combining configurable preprocessing, model training, evaluation, and model serialization. The project includes separate workflows for regression and classification while sharing a common data preparation module.
 
-Two pipelines — one for regression, one for classification — sharing a common data core. Point either at any CSV, select a target column, and get a fully evaluated, cross-validated, serializable model with live inference support. The data changes. The pipeline doesn't.
-
-```
-supervised-learning-pipelines/
-├── core/
-│   └── data_cleaner.py               # Shared data engine — both pipelines import from here
-├── reusable_regression_pipeline.py   # RRP — continuous target prediction
-├── common_classification_pipeline.py # CCP — discrete class prediction
-├── pipeline_settings.json            # Single config file controls both pipelines
-└── requirements.txt
-```
+The project was built to explore how reusable machine learning workflows can be structured independently of any specific dataset.
 
 ---
 
-## The Two Pipelines
+## Features
 
-### 📈 RRP — Reusable Regression Pipeline
-*Point it at any CSV. Select a continuous target. Get a fully evaluated linear regression model.*
-
-```
-python reusable_regression_pipeline.py
-
-Select Mode:
-  [1] Train a new Regression Model on a CSV dataset
-  [2] Load an existing saved pipeline (.pkl) for Live Predictions
-```
-
-**Output:**
-- R² score (held-out test set + 5-fold CV mean)
-- MAE and RMSE
-- Feature impact ranking with visual coefficient bar graph
-- Serialized `.pkl` pipeline for live inference
+- Regression and classification pipelines
+- Shared data preprocessing module
+- Automatic handling of missing values and categorical features
+- Cross-validation and evaluation metrics
+- Model serialization for later inference
 
 ---
 
-### ⚖️ CCP — Common Classification Pipeline
-*Point it at any CSV. Select a discrete target. Get a fully evaluated logistic classifier — binary or multi-class.*
+## Pipeline
 
+```text
+CSV Dataset
+     │
+     ▼
+Data Preprocessing
+     │
+     ▼
+Feature & Target Selection
+     │
+     ▼
+Model Training
+     │
+     ▼
+Evaluation
+     │
+     ▼
+Saved Pipeline
 ```
-python common_classification_pipeline.py
-
-Select Executive Workflow Mode:
-  [1] Train a new Logistic Classification Model
-  [2] Spin up Live Predict Engine from a saved (.pkl) asset
-```
-
-**Output:**
-- Accuracy, Precision, Recall, F1-Score
-- Stratified 5-fold CV accuracy mean
-- Feature log-odds influence ranking with visual bar graph
-- Serialized `.pkl` pipeline + companion label encoder for original class name decoding
-
----
-
-## Shared Data Core
-
-Both pipelines import from `core/data_cleaner.py` — a universal data engine that handles:
-
-- **Numeric filtering** — retains only columns that are at least 50% numeric (configurable)
-- **ID column detection** — drops sequential integer primary keys using a name token + integer wholeness heuristic, avoiding false drops on legitimate features
-- **Missing value imputation** — mean for numeric columns, mode for categorical columns
-- **Categorical target encoding** — auto-detects text class labels and encodes them to integers via `LabelEncoder`, with the encoder saved alongside the pipeline for inverse decoding during inference
-- **One-hot encoding** — automatically converts categorical feature columns to binary integer columns before training
-
----
-
-## How It Works
-
-Both pipelines run four sequential phases:
-
-### Phase 1 — Universal Data Ingestion
-Loads any CSV, filters columns, detects and drops ID keys, imputes missing values, and prints a full parsing summary dashboard.
-
-### Phase 2 — Interactive Target Selection
-Lists all cleaned columns with index numbers. Accepts target by name or number. Auto-encodes text targets for CCP. Assigns all remaining columns as features.
-
-### Phase 3 — Training & Cross-Validation
-
-| | RRP | CCP |
-|--|-----|-----|
-| Model | `LinearRegression` | `LogisticRegression` |
-| CV Strategy | `KFold` (shuffled) | `StratifiedKFold` (class-balanced) |
-| Primary Metric | R² | Accuracy |
-
-### Phase 4 — Analytics Dashboard
-Prints a full performance report with metrics, CV scores, and a ranked feature impact table with a visual bar graph.
 
 ---
 
 ## Tech Stack
 
-| Layer | Library |
-|-------|---------|
-| ML models & cross-validation | `scikit-learn` |
-| Data loading & manipulation | `pandas` |
-| Numerical computation | `numpy` |
-| Model serialization | `joblib` |
+- Python
+- scikit-learn
+- pandas
+- NumPy
+- Joblib
+- JSON Configuration
 
 ---
 
-## Getting Started
+## Project Structure
 
-### 1. Install dependencies
-
-```bash
-pip install -r requirements.txt
+```text
+supervised_learning_pipelines/
+├── core/
+│   └── data_cleaner.py
+├── reusable_regression_pipeline.py
+├── common_classification_pipeline.py
+├── pipeline_settings.json
+└── requirements.txt
 ```
 
-### 2. Run either pipeline
-
-```bash
-python reusable_regression_pipeline.py
-python common_classification_pipeline.py
-```
-
-### 3. Live inference from a saved pipeline
-
-Both pipelines offer a predict mode at launch — load any saved `.pkl` and either:
-- Batch predict from a new CSV file
-- Manually enter feature values for single-row inference
-
-For CCP with text class labels, the pipeline auto-saves a companion `ccp_encoder_{target}.pkl` — keep both files together for original label decoding during inference.
-
 ---
 
-## Configuration
+## Design
 
-A single `pipeline_settings.json` controls both pipelines:
-
-| Parameter | What it controls |
-|-----------|-----------------|
-| `test_split_ratio` | Fraction of data held out for final evaluation (default: 0.2) |
-| `random_state` | Seed for reproducible splits |
-| `numeric_threshold` | Minimum numeric ratio for a column to be retained (default: 0.50) |
-| `cross_validation_folds` | Number of CV folds (default: 5) |
-| `scaling_enabled` | Toggle `StandardScaler` normalization before training (default: true) |
-
-All parameters have safe fallback defaults — both pipelines run correctly even without the config file.
-
----
-
-## Design Decisions
-
-**Why a shared data core?**
-Regression and classification share identical preprocessing needs — filtering, imputation, encoding. A single `data_cleaner.py` means any fix or improvement to data handling propagates to both pipelines automatically, with no risk of the two drifting apart.
-
-**Why config-driven?**
-Hardcoded split ratios and fold counts make experimentation require code changes. Externalising them to `pipeline_settings.json` means you can tune the training setup without touching pipeline logic — and safe fallback defaults mean the config file is optional, not a dependency.
-
----
-
-## Roadmap
-
-- [ ] Ridge and polynomial regression modes via `pipeline_settings.json` recipe key
-- [ ] Decision tree and random forest classification support
-- [ ] Correlation matrix report in Phase 1
-- [ ] HTML report export alongside terminal dashboard
-- [ ] Unified SLP runner — single entry point that routes to RRP or CCP based on config
+SLP separates data preprocessing from model-specific workflows, allowing regression and classification pipelines to reuse the same preparation logic. Configuration files are used to control preprocessing and evaluation settings without modifying the implementation.
 
 ---
 
 ## Limitations
 
-- RRP supports only linear regression — non-linear relationships will produce poor R² scores
-- CCP supports only logistic regression — complex decision boundaries may need tree-based models
-- Mean/mode imputation may introduce bias on datasets with significant missingness
-- One-hot encoding expands feature space significantly on high-cardinality categorical columns
+- Supports linear regression and logistic regression only.
+- Performance depends on dataset quality and feature engineering.
+- Mean and mode imputation may not be suitable for every dataset.
 
 ---
 
-*Built dataset-agnostic by design. The pipeline is the reusable artifact — not the model.*
+## Future Improvements
+
+- Additional regression and classification algorithms
+- Feature selection utilities
+- Automated experiment reports
+- Unified command-line interface
+- Hyperparameter tuning support
+
+---
+
+*Built as an exploration of reusable supervised learning workflows.*
